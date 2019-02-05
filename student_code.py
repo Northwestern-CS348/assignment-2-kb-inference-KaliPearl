@@ -51,7 +51,7 @@ class KnowledgeBase(object):
         """Add a fact or rule to the KB
         Args:
             fact_rule (Fact|Rule) - the fact or rule to be added
-        Returns:
+        Returns
             None
         """
         printv("Adding {!r}", 1, verbose, [fact_rule])
@@ -126,8 +126,75 @@ class KnowledgeBase(object):
             None
         """
         printv("Retracting {!r}", 0, verbose, [fact_or_rule])
+        print("SUPPORTS:" , fact_or_rule.supports_facts, fact_or_rule.supports_rules)
         ####################################################
         # Student code goes here
+        # have to check if the fact is in the kb
+
+        if isinstance(fact_or_rule, Fact):
+            try:
+                find = self.facts.index(fact_or_rule)
+                fact_or_rule = self.facts[find]
+            except ValueError:
+                print("fact not currently in kb")
+            if not fact_or_rule.supported_by:
+
+                if fact_or_rule.supports_facts:
+                    for f in fact_or_rule.supports_facts:
+                        try:
+                            find = f.supported_by.index(fact_or_rule)
+                            del f.supported_by[find]
+                            del f.supported_by[find]
+                        except ValueError:
+                            pass
+                        if (not f.asserted) and len(f.supported_by) == 0:
+                            self.kb_retract(f)
+
+                if fact_or_rule.supports_rules:
+                    for r in fact_or_rule.supports_rules:
+                        try:
+                            find = r.supported_by.index(fact_or_rule)
+                            del r.supported_by[find]
+                            del r.supported_by[find]
+                        except ValueError:
+                            pass
+                        if (not r.asserted) and len(r.supported_by) == 0:
+                            self.kb_retract(r)
+
+                self.facts.remove(fact_or_rule)
+
+        elif isinstance(fact_or_rule, Rule):
+            try:
+                find = self.rules.index(fact_or_rule)
+                fact_or_rule = self.rules[find]
+            except ValueError:
+                print("rule not in kb")
+            if not fact_or_rule.asserted and not fact_or_rule.supported_by:
+
+                if fact_or_rule.supports_facts:
+                    for f in fact_or_rule.supports_facts:
+                        try:
+                            find = f.supported_by.index(fact_or_rule)
+                            del f.supported_by[find]
+                            del f.supported_by[find - 1]
+                        except ValueError:
+                            pass
+                        if (not f.asserted) and len(f.supported_by) == 0:
+                            self.kb_retract(f)
+
+                if fact_or_rule.supports_rules:
+                    for r in fact_or_rule.supports_rules:
+                        try:
+                            find = r.supported_by.index(fact_or_rule)
+                            del f.supported_by[find]
+                            del f.supported_by[find - 1]
+                        except ValueError:
+                            pass
+                        if (not r.asserted) and len(r.supported_by) == 0:
+                            self.kb_retract(r)
+
+                self.rules.remove(fact_or_rule)
+
         
 
 class InferenceEngine(object):
@@ -146,3 +213,25 @@ class InferenceEngine(object):
             [fact.statement, rule.lhs, rule.rhs])
         ####################################################
         # Student code goes here
+        lob = match(fact.statement, rule.lhs[0])
+        if lob:
+            if len(rule.lhs) == 1:
+                newstatement = instantiate(rule.rhs, lob)
+                newfact = Fact(newstatement)
+                newfact.supported_by += [fact, rule]
+                newfact.asserted = False
+                fact.supports_facts.append(newfact)
+                rule.supports_facts.append(newfact)
+                kb.kb_assert(newfact)
+            else:
+                newlhs = []
+                for statement in rule.lhs[1:]:
+                    newlhs += [instantiate(statement, lob)]
+                newrule = Rule([newlhs, instantiate(rule.rhs, lob)])
+                newrule.supported_by += [fact, rule]
+                newrule.asserted = False
+                fact.supports_rules.append(newrule)
+                rule.supports_rules.append(newrule)
+                kb.kb_assert(newrule)
+
+
